@@ -4,7 +4,7 @@ An AI customer-support agent that a business trains on **its own PDFs and websit
 
 ![Landing page with the live demo widget](docs/screenshots/widget.png)
 
-> **Live demo:** open the landing page, click **"Chat with the live demo"**, and ask the fictional *Brightside Dental Studio* bot something like *"Do you take Delta Dental?"* or *"How much is whitening?"*. Then click **"Explore the dashboard"** for the read-only admin view.
+> **Live demo: [supportpilot-nine.vercel.app](https://supportpilot-nine.vercel.app)**. Click **"Chat with the live demo"**, and ask the fictional *Brightside Dental Studio* bot something like *"Do you take Delta Dental?"* or *"How much is whitening?"*. Then click **"Explore the dashboard"** for the read-only admin view.
 
 ---
 
