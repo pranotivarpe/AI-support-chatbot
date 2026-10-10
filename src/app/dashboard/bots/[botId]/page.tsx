@@ -1,9 +1,10 @@
 import { and, count, desc, eq, gte, sql } from "drizzle-orm";
-import { AlertTriangle, ArrowRight, BookOpen, Code2, FileText, Globe, MessagesSquare } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpen, Code2, Download, FileText, Globe, MessagesSquare } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/button";
+import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { getUnansweredQuestions } from "@/lib/analytics";
 import { requireBot } from "@/lib/auth";
 import { db, pg, schema } from "@/lib/db";
 import { daysAgo, formatNumber, timeAgo } from "@/lib/utils";
@@ -39,20 +40,7 @@ export default async function BotOverview({ params }: PageProps<"/dashboard/bots
           (SELECT count(*)::int FROM leads l WHERE l.bot_id = ${botId} AND l.created_at::date = d) AS leads
         FROM generate_series(current_date - ${DAYS - 1}::int, current_date, '1 day') AS d
         ORDER BY d`,
-      // Questions the bot couldn't answer = content gaps to fill.
-      pg<{ question: string; times: number; last: Date }[]>`
-        SELECT q.content AS question, count(*)::int AS times, max(a.created_at) AS last
-        FROM messages a
-        JOIN conversations c ON c.id = a.conversation_id
-        JOIN LATERAL (
-          SELECT content FROM messages u
-          WHERE u.conversation_id = a.conversation_id AND u.role = 'user' AND u.created_at <= a.created_at
-          ORDER BY u.created_at DESC LIMIT 1
-        ) q ON true
-        WHERE c.bot_id = ${botId} AND a.is_fallback
-        GROUP BY lower(q.content), q.content
-        ORDER BY times DESC, last DESC
-        LIMIT 6`,
+      getUnansweredQuestions(botId, 6),
       pg<{ title: string; type: string; cites: number }[]>`
         SELECT s.title, s.type, count(*)::int AS cites
         FROM messages m
@@ -145,9 +133,16 @@ export default async function BotOverview({ params }: PageProps<"/dashboard/bots
             title="Unanswered questions"
             description="Questions the bot handed off: add content to cover these."
             action={
-              <ButtonLink href={`${base}/knowledge`} variant="secondary" size="sm">
-                Add knowledge
-              </ButtonLink>
+              <div className="flex shrink-0 gap-2">
+                {unanswered.length > 0 && (
+                  <a href={`/api/bots/${botId}/unanswered.csv`} className={buttonClass("secondary", "sm")}>
+                    <Download /> Export CSV
+                  </a>
+                )}
+                <ButtonLink href={`${base}/knowledge`} variant="secondary" size="sm">
+                  Add knowledge
+                </ButtonLink>
+              </div>
             }
           />
           {unanswered.length === 0 ? (
