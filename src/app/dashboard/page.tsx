@@ -22,9 +22,9 @@ export default async function DashboardHome() {
       businessName: bots.businessName,
       brandColor: bots.brandColor,
       createdAt: bots.createdAt,
-      sources: sql<number>`(select count(*)::int from ${sources} where ${sources.botId} = ${bots.id})`,
-      conversations: sql<number>`(select count(*)::int from ${conversations} where ${conversations.botId} = ${bots.id})`,
-      leads: sql<number>`(select count(*)::int from ${leads} where ${leads.botId} = ${bots.id})`,
+      sources: sql<number>`(select count(*)::int from ${sources} where ${sources.botId} = ${bots}.id)`,
+      conversations: sql<number>`(select count(*)::int from ${conversations} where ${conversations.botId} = ${bots}.id)`,
+      leads: sql<number>`(select count(*)::int from ${leads} where ${leads.botId} = ${bots}.id)`,
     })
     .from(bots)
     .where(eq(bots.userId, user.id))
