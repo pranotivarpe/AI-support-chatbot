@@ -7,8 +7,9 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getUnansweredQuestions } from "@/lib/analytics";
 import { requireBot } from "@/lib/auth";
 import { db, pg, schema } from "@/lib/db";
-import { daysAgo, formatNumber, timeAgo } from "@/lib/utils";
+import { formatNumber, timeAgo } from "@/lib/utils";
 import { ActivityChart, type DailyPoint } from "./activity-chart";
+import { AutoRefresh } from "./auto-refresh";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -18,7 +19,8 @@ export default async function BotOverview({ params }: PageProps<"/dashboard/bots
   const { botId } = await params;
   await requireBot(botId);
   const { conversations, leads, messages, handoffs, sources } = schema;
-  const since = daysAgo(DAYS);
+  // Same calendar-day window (DB clock) as the activity chart, so tiles match its totals.
+  const since = sql`current_date - ${DAYS - 1}::int`;
 
   const [[conv], [lead], [replies], [handoff], [sourceCount], daily, unanswered, topSources, recent] =
     await Promise.all([
@@ -77,6 +79,9 @@ export default async function BotOverview({ params }: PageProps<"/dashboard/bots
   if (sourceCount.n === 0) {
     return (
       <Card className="p-8">
+        <div className="flex justify-end">
+          <AutoRefresh />
+        </div>
         <div className="mx-auto max-w-xl text-center">
           <h2 className="text-lg font-semibold text-zinc-900">Let&apos;s get your bot live</h2>
           <p className="mt-1 text-sm text-zinc-500">Three quick steps and it&apos;s answering customers on your website.</p>
@@ -110,6 +115,9 @@ export default async function BotOverview({ params }: PageProps<"/dashboard/bots
 
   return (
     <div className="space-y-6">
+      <div className="-mb-3 flex justify-end">
+        <AutoRefresh />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map((t) => (
           <Card key={t.label} className="p-5">

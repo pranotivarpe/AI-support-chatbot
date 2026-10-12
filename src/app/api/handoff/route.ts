@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { notifyOwner } from "@/lib/notify";
@@ -32,14 +32,16 @@ export async function POST(req: Request) {
   if (!bot) return Response.json({ error: "Bot not found" }, { status: 404 });
 
   let conversationId: string | null = null;
+  let existingLeadId: string | null = null;
   let transcript: string[] = [];
   if (data.conversationId) {
     const [conv] = await db
-      .select({ id: schema.conversations.id })
+      .select({ id: schema.conversations.id, leadId: schema.conversations.leadId })
       .from(schema.conversations)
       .where(and(eq(schema.conversations.id, data.conversationId), eq(schema.conversations.visitorId, data.visitorId)));
     if (conv) {
       conversationId = conv.id;
+      existingLeadId = conv.leadId;
       await db.update(schema.conversations).set({ handoffRequested: true }).where(eq(schema.conversations.id, conv.id));
       const msgs = await db
         .select({ role: schema.messages.role, content: schema.messages.content })
@@ -58,6 +60,32 @@ export async function POST(req: Request) {
     email: data.email?.toLowerCase() || null,
     message: data.message || null,
   });
+
+  // An email handoff hands over contact details, so record it as a lead too:
+  // reuse this bot's existing lead for the email (or the conversation's), else create one.
+  if (data.channel === "email" && data.email) {
+    const email = data.email.toLowerCase();
+    const name = data.name || email.split("@")[0];
+    const [byEmail] = await db
+      .select({ id: schema.leads.id })
+      .from(schema.leads)
+      .where(and(eq(schema.leads.botId, bot.id), eq(schema.leads.email, email)))
+      .orderBy(desc(schema.leads.createdAt))
+      .limit(1);
+    let leadId = byEmail?.id ?? null;
+    if (leadId) {
+      if (data.name) await db.update(schema.leads).set({ name: data.name }).where(eq(schema.leads.id, leadId));
+    } else if (!existingLeadId) {
+      const [lead] = await db
+        .insert(schema.leads)
+        .values({ botId: bot.id, conversationId, name, email })
+        .returning({ id: schema.leads.id });
+      leadId = lead.id;
+    }
+    if (leadId && conversationId && leadId !== existingLeadId) {
+      await db.update(schema.conversations).set({ leadId }).where(eq(schema.conversations.id, conversationId));
+    }
+  }
 
   if (data.channel === "email") {
     await notifyOwner(bot.handoffEmail, `A visitor wants to talk to a human (${bot.businessName})`, [
