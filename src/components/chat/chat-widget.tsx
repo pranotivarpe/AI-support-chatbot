@@ -235,6 +235,7 @@ export function ChatWidget({ config, mode = "embed", pageUrl = null }: Props) {
                 config={config}
                 session={session}
                 onSent={() => setHandoffOpen(false)}
+                onLead={() => updateSession({ leadDone: true })}
                 onCancel={() => setHandoffOpen(false)}
               />
             )}
@@ -474,11 +475,13 @@ function HandoffCard({
   config,
   session,
   onSent,
+  onLead,
   onCancel,
 }: {
   config: PublicBotConfig;
   session: { visitorId: string; conversationId: string | null };
   onSent: () => void;
+  onLead: () => void;
   onCancel: () => void;
 }) {
   const [step, setStep] = useState<"choose" | "email" | "sent">("choose");
@@ -506,6 +509,7 @@ function HandoffCard({
     setBusy(false);
     if (!res.ok) return setError((await res.json().catch(() => ({}))).error || "Please try again.");
     setStep("sent");
+    onLead();
     setTimeout(onSent, 3500);
   }
 
